@@ -20,14 +20,14 @@ simple_b11=10
 simple_b12=11
 
 # Channel,Note,Velocity
-1simple1=10,115,99
+1simple1=10,49,99
 1simple2=10,9,99
 1simple3=10,120,99
-1simple4=10,45,99
-1simple5=10,41,99
-1simple6=10,43,99
-1simple7=10,46,99
-1simple8=10,45,99
+1simple4=10,36,99
+1simple5=10,36,99
+1simple6=10,42,99
+1simple7=10,38,99
+1simple8=10,46,99
 1simple9=10,50,99
 1simple10=10,112,99
 1simple11=0,51,99

@@ -342,7 +342,8 @@ void joy2seq::send_click_events() //not implemented yet
 void joy2seq::send_note_down(int channel, int note, int velocity)
 {
 	cout << "Note on event: Channel: " << channel << " Note: " << note << " Velocity: " << velocity << endl;
-	snd_seq_ev_set_noteon(&ev, channel, note, velocity);
+//	snd_seq_ev_set_noteon(&ev, channel, note, velocity);
+	snd_seq_ev_set_noteon(&ev, channel, note, 100);
 	snd_seq_event_output_direct(seq_handle, &ev);
 }
 
@@ -428,7 +429,7 @@ void joy2seq::process_events(js_event js)
 				{
 					if (simple_values[allsimple] == js.number)
 					{
-						if (verbose)
+//						if (verbose)
 						{
 							printf("Pressed: %i\n",js.number);
 							//cout << "Sending Down: " << // simple_values[allsimple];
