@@ -40,6 +40,8 @@
 
 #include "ConfigFile.h" // from http://www-personal.umich.edu/~wagnerr/ConfigFile.html
 #include "joy2seq.h"
+#include <alsa/asoundlib.h>
+#include <alsa/seqmid.h>
 
 /* Globals */
 
@@ -91,6 +93,37 @@ int joy2seq::open_joystick()
 	{
         	cout << "Using Joystick " << device_number << " ( " << device_name << ") through device " << device << " with " << total_axes << " axes and " << controller_buttons <<" chorded buttons." << endl;
 	}
+
+        return 0;
+}
+
+int joy2seq::open_alsa_seq()
+{
+        char client_name[32];
+        char port_name[48];
+        snd_seq_addr_t src;
+
+        /* Create the sequencer port. */
+
+        sprintf(client_name, "Joystick%i", device_number);
+        sprintf(port_name , "%s Output", client_name);
+
+        if (snd_seq_open(&seq_handle, "default", SND_SEQ_OPEN_OUTPUT, 0) < 0) {
+                puts("Error: Failed to access the ALSA sequencer.");
+                exit(-1);
+        }
+
+        snd_seq_set_client_name(seq_handle, client_name);
+        src.client = snd_seq_client_id(seq_handle);
+        src.port = snd_seq_create_simple_port(seq_handle, "Joystick Output",
+                SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_SUBS_READ, SND_SEQ_PORT_TYPE_APPLICATION);
+
+        /* Init the event structure */
+
+        snd_seq_ev_clear(&ev);
+        snd_seq_ev_set_source(&ev, src.port);
+        snd_seq_ev_set_subs(&ev);
+        snd_seq_ev_set_direct(&ev);
 
         return 0;
 }
@@ -176,12 +209,21 @@ int joy2seq::read_config(map<string,int>  & chordmap)
 			{
 				cerr << "Invalid entry for value: " << itemname << endl;
 			}
-			int ukeyvalue = chordmap.find(readvalue)->second;
-			simple_modes[mode_loop][key_loop] = ukeyvalue;
+			cout << "Line: " << readvalue << endl;
+			int pos = readvalue.find(",");
+			int channel = atoi(readvalue.substr(0,pos).c_str());
+			string half = readvalue.substr(pos+1).c_str();
+			int npos = half.find(",");
+			int note = atoi(half.substr(0,npos).c_str());
+			int velocity = atoi(half.substr(npos+1).c_str());
+			cout << "Channel: " << channel << " Note: " << note << " Velocity: " << velocity << endl << endl;
+			simple_modes[mode_loop][key_loop][0] = channel;
+			simple_modes[mode_loop][key_loop][1] = note;
+			simple_modes[mode_loop][key_loop][2] = velocity;
 			//SOMETHING [mode_loop][key_loop] = readvalue;
 			if ((debug) && (readvalue != ""))
 			{ // only read valid entries
-				cout << "Adding " << readvalue << "[" << ukeyvalue << "]" << " to simple[" << mode_loop << "][" << key_loop << "] " << endl;
+				cout << "Adding " << readvalue << "[" << note << "]" << " to simple[" << mode_loop << "][" << key_loop << "] " << endl;
 			}
 		}
 	}
@@ -297,12 +339,17 @@ void joy2seq::send_click_events() //not implemented yet
 
 }
 
-void joy2seq::send_note_down(int note, int velocity)
+void joy2seq::send_note_down(int channel, int note, int velocity)
 {
+	cout << "Note on event: Channel: " << channel << " Note: " << note << " Velocity: " << velocity << endl;
+	snd_seq_ev_set_noteon(&ev, channel, note, velocity);
+	snd_seq_event_output_direct(seq_handle, &ev);
 }
 
-void joy2seq::send_note_up(int note)
+void joy2seq::send_note_up(int channel, int note)
 {
+	snd_seq_ev_set_noteoff(&ev, channel, note, 0);
+	snd_seq_event_output_direct(seq_handle, &ev);
 }
 
 int joy2seq::valid_note( string newkey){
@@ -386,7 +433,7 @@ void joy2seq::process_events(js_event js)
 							printf("Pressed: %i\n",js.number);
 							//cout << "Sending Down: " << // simple_values[allsimple];
 						}
-						send_note_down(simple_modes[mode][allsimple], 50);	//temp value
+						send_note_down(simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1], simple_modes[mode][allsimple][2]);
 					}
 				}
 			}else{ // track when buttons are released
@@ -405,7 +452,7 @@ void joy2seq::process_events(js_event js)
 						{
 							//cout << "Sending Up: " << //simple_values[allsimple];
 						}
-						send_note_up(simple_modes[mode][allsimple]);
+						send_note_up(simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1]);
 					}
 				}
 			}
@@ -518,7 +565,7 @@ void joy2seq::process_events(js_event js)
 					{
 						cout << "Sending Mode[" << mode << "] Down Code: " <<  button_code << endl;
 					}
-					send_note_down(thisnote, 50); // temp value
+//					send_note_down(simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1],simple_modes[mode][allsimple][2]);
 					lastnote= thisnote;
 				}
 					for (int mbuttons = 1; mbuttons <= total_modifiers; mbuttons++)
@@ -552,7 +599,7 @@ void joy2seq::process_events(js_event js)
 					{
 						cout << "Sending Mode[" << mode << "] Up Code: " <<  button_code << endl;
 					}
-					send_note_up(thisnote);	
+//					send_note_up(simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1]);	
 					
 					for (int mbuttons = 1; mbuttons <= total_modifiers; mbuttons++)
 					{
@@ -563,7 +610,7 @@ void joy2seq::process_events(js_event js)
 								cout << "Cleared Modifier State " << mbuttons << endl;
 							}
 							modifier_state[mbuttons] = 0;
-							send_note_up(modifier[mbuttons]);
+//							send_note_up(simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1]);
 						}
 					}
 				}	
@@ -641,7 +688,14 @@ int main( int argc, char *argv[])
         
 	myjoy.read_config(chordmap);
 	myjoy.device_number = init_device_number; // once the device number is pulled from the config file, store it with the other information in the class
+	
+	for (int init=0; init <= MAX_BUTTONS; init++){
+		myjoy.button_state[init] = 0;
+		myjoy.holdnote[init] = 0;
+		myjoy.holdchannel[init] = 0;
+		myjoy.lastcontroller[init] = 0;
+	}
 	myjoy.open_joystick();
-
+	myjoy.open_alsa_seq();
 	myjoy.main_loop(chordmap);
 }
