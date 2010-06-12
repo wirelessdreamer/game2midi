@@ -416,7 +416,7 @@ void joy2seq::process_events(js_event js)
 				{
 					if (calibration)
 						{
-							printf("Pressed: %i\n",js.number);
+							printf("Pressed: %i\n",js.number + 1);
 						}
 					if( js.number == chord_values[allbuttons])
 					{
@@ -431,7 +431,7 @@ void joy2seq::process_events(js_event js)
 					{
 //						if (verbose)
 						{
-							printf("Pressed: %i\n",js.number);
+							printf("Pressed: %i\n",js.number + 1);
 							//cout << "Sending Down: " << // simple_values[allsimple];
 						}
 						send_note_down(simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1], simple_modes[mode][allsimple][2]);
