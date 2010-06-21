@@ -1,0 +1,11 @@
+add support for these message types:
+cc - control change
+pc - program change
+pw - pitch wheel
+
+todo soon:
+add support for analog axis -> note on support with velocity support
+
+todo down the road:
+timing clock sync
+roll support tied to timing clock
