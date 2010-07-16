@@ -209,21 +209,20 @@ int joy2seq::read_config(map<string,int>  & chordmap)
 			{
 				cerr << "Invalid entry for value: " << itemname << endl;
 			}
-			cout << "Line: " << readvalue << endl;
+//			cout << "Line: " << readvalue << endl;
 			int pos = readvalue.find(",");
 			int channel = atoi(readvalue.substr(0,pos).c_str());
 			string half = readvalue.substr(pos+1).c_str();
 			int npos = half.find(",");
 			int note = atoi(half.substr(0,npos).c_str());
 			int velocity = atoi(half.substr(npos+1).c_str());
-			cout << "Channel: " << channel << " Note: " << note << " Velocity: " << velocity << endl << endl;
+			cout << "Channel: " << channel << " Note: " << note << " Velocity: " << velocity << endl;
 			simple_modes[mode_loop][key_loop][0] = channel;
 			simple_modes[mode_loop][key_loop][1] = note;
 			simple_modes[mode_loop][key_loop][2] = velocity;
-			//SOMETHING [mode_loop][key_loop] = readvalue;
-			if ((debug) && (readvalue != ""))
+			if ((verbose) && (readvalue != ""))
 			{ // only read valid entries
-				cout << "Adding " << readvalue << "[" << note << "]" << " to simple[" << mode_loop << "][" << key_loop << "] " << endl;
+				cout << "Adding " << readvalue << " to simple[" << mode_loop << "][" << key_loop << "] " << endl;
 			}
 		}
 	}
@@ -411,13 +410,14 @@ void joy2seq::process_events(js_event js)
 	{
                	case JS_EVENT_BUTTON:
 			if (js.value) 
-			{ // if a button is pressed down remember its state until all buttons are released
+			{ 
+				if (verbose)
+				{
+					printf("Pressed: %i\n",js.number + 1);
+				}
+				// if a button is pressed down remember its state until all buttons are released
 				for ( int allbuttons = 0; allbuttons < total_chorded_buttons; allbuttons++)
 				{
-					if (calibration)
-						{
-							printf("Pressed: %i\n",js.number + 1);
-						}
 					if( js.number == chord_values[allbuttons])
 					{
 						
@@ -427,13 +427,9 @@ void joy2seq::process_events(js_event js)
 				}		
 				for (int allsimple = 1; allsimple <= total_simple_buttons; allsimple++)
 				{
+						printf("Data: %i,%i,%i\n", simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1], simple_modes[mode][allsimple][2]);
 					if (simple_values[allsimple] == js.number)
 					{
-//						if (verbose)
-						{
-							printf("Pressed: %i\n",js.number + 1);
-							//cout << "Sending Down: " << // simple_values[allsimple];
-						}
 						send_note_down(simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1], simple_modes[mode][allsimple][2]);
 					}
 				}
@@ -449,10 +445,6 @@ void joy2seq::process_events(js_event js)
 				{
 					if (simple_values[allsimple] == js.number)
 					{
-						if (verbose)
-						{
-							//cout << "Sending Up: " << //simple_values[allsimple];
-						}
 						send_note_up(simple_modes[mode][allsimple][0],simple_modes[mode][allsimple][1]);
 					}
 				}
