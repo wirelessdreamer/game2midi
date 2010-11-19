@@ -1,5 +1,5 @@
-AC_INIT(src/joy2seq.cpp)
-AM_INIT_AUTOMAKE(joy2seq, 0.1)
+AC_INIT(src/game2midi.cpp)
+AM_INIT_AUTOMAKE(game2midi, 0.1)
 AC_PROG_CXX
 AC_LANG_C
 dnl Checks for programs.
