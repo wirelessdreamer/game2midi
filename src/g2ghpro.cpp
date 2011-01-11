@@ -102,23 +102,6 @@ int main( int argc, char *argv[] )
 	}
 
 	// Check available ports vs. specified.
-	unsigned int port = 0;
-	unsigned int nPorts = midiin->getPortCount();
-	if ( argc == 2 ) port = (unsigned int) atoi( argv[1] );
-	if ( port >= nPorts ) {
-		delete midiin;
-		std::cout << "Invalid port specifier!\n";
-		usage();
-	}
-
-	try {
-		midiin->openPort( port );
-	}
-	catch ( RtError &error ) {
-		error.printMessage();
-		goto cleanup;
-	}
-
 	// RtMidiOut constructor
 	try {
 		midiout = new RtMidiOut();
@@ -127,14 +110,7 @@ int main( int argc, char *argv[] )
 		error.printMessage();
 		exit( EXIT_FAILURE );
 	}
-	// Call function to select port.
-	try {
-		if ( chooseMidiOutPort( midiout ) == false ) goto cleanup;
-	}
-	catch ( RtError &error ) {
-		error.printMessage();
-		goto cleanup;
-	}
+	// Call functions to select port.
 	try {
 		if ( chooseMidiInPort( midiin ) == false ) goto cleanup;
 	}
@@ -142,6 +118,14 @@ int main( int argc, char *argv[] )
 		error.printMessage();
 		goto cleanup;
 	}
+	try {
+		if ( chooseMidiOutPort( midiout ) == false ) goto cleanup;
+	}
+	catch ( RtError &error ) {
+		error.printMessage();
+		goto cleanup;
+	}
+	
 	// Set our callback function.  This should be done immediately after
 	// opening the port to avoid having incoming messages written to the
 	// queue instead of sent to the callback function.
@@ -164,21 +148,21 @@ cleanup:
 	return 0;
 }
 
-bool chooseMidiInPort( RtMidiIn *rtmidi )
+bool chooseMidiInPort( RtMidiIn *rtmidiin )
 {
 	std::string portName;
-	unsigned int i = 0, nPorts = rtmidi->getPortCount();
+	unsigned int i = 0, nPorts = rtmidiin->getPortCount();
 	if ( nPorts == 0 ) {
 		std::cout << "No output ports available!" << std::endl;
 		return false;
 	}
 
 	if ( nPorts == 1 ) {
-		std::cout << "\nOpening " << rtmidi->getPortName() << std::endl;
+		std::cout << "\nOpening " << rtmidiin->getPortName() << std::endl;
 	}
 	else {
 		for ( i=0; i<nPorts; i++ ) {
-			portName = rtmidi->getPortName(i);
+			portName = rtmidiin->getPortName(i);
 			std::cout << "  Input port #" << i << ": " << portName << '\n';
 		}
 
@@ -189,7 +173,7 @@ bool chooseMidiInPort( RtMidiIn *rtmidi )
 	}
 
 	std::cout << "\n";
-	rtmidi->openPort( i );
+	rtmidiin->openPort( i );
 
 	return true;
 }
