@@ -154,6 +154,7 @@ int main( int argc, char *argv[] )
 	std::cout << "\nProcessing Midi Messages ... press <enter> to quit.\n";
 	char input;
 	std::cin.get(input);
+	std::cin.get(input);
 
 	// Clean up
 cleanup:
@@ -182,7 +183,7 @@ bool chooseMidiInPort( RtMidiIn *rtmidi )
 		}
 
 		do {
-			std::cout << "\nChoose a port number: ";
+			std::cout << "\nChoose input port number: ";
 			std::cin >> i;
 		} while ( i >= nPorts );
 	}
@@ -213,7 +214,7 @@ bool chooseMidiOutPort( RtMidiOut *rtmidi )
 		}
 
 		do {
-			std::cout << "\nChoose a port number: ";
+			std::cout << "\nChoose output port number: ";
 			std::cin >> i;
 		} while ( i >= nPorts );
 	}
