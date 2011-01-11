@@ -47,6 +47,18 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 	if ((type >= 144) && (type <= 159)){ // Note On Event
 		std::cout << "Note: " << note << std::endl;
 		channel = type - 144;
+
+		std::vector<unsigned char> XsysExMessage;
+		XsysExMessage.push_back( 240);
+		XsysExMessage.push_back( 8 );
+		XsysExMessage.push_back( 64 );
+		XsysExMessage.push_back( 10  );
+		XsysExMessage.push_back(1);
+		XsysExMessage.push_back( channel + 1);
+		XsysExMessage.push_back( velocity );
+		XsysExMessage.push_back( 247 );
+		midiout->sendMessage( &XsysExMessage );
+
 		std::vector<unsigned char> sysExMessage;
 		sysExMessage.push_back( 240);
 		sysExMessage.push_back( 8 );
