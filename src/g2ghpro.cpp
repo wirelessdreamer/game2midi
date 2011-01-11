@@ -14,7 +14,9 @@ wirelessdreamer @t gmai<L> d.t com
 #include "RtMidi.h"
 
 RtMidiOut *midiout;
-bool chooseMidiPort( RtMidiOut *rtmidi );
+bool chooseMidiOutPort( RtMidiOut *rtmidi );
+bool chooseMidiInPort( RtMidiIn *rtmidi );
+
 void usage( void ) {
 	// Error function in case of incorrect command-line
 	// argument specifications.
@@ -127,7 +129,14 @@ int main( int argc, char *argv[] )
 	}
 	// Call function to select port.
 	try {
-		if ( chooseMidiPort( midiout ) == false ) goto cleanup;
+		if ( chooseMidiOutPort( midiout ) == false ) goto cleanup;
+	}
+	catch ( RtError &error ) {
+		error.printMessage();
+		goto cleanup;
+	}
+	try {
+		if ( chooseMidiInPort( midiin ) == false ) goto cleanup;
 	}
 	catch ( RtError &error ) {
 		error.printMessage();
@@ -142,13 +151,8 @@ int main( int argc, char *argv[] )
 
 	midiin->ignoreTypes( false, false, false );
 
-	std::cout << "\nReading MIDI input ... press <enter> to quit.\n";
+	std::cout << "\nProcessing Midi Messages ... press <enter> to quit.\n";
 	char input;
-	std::cin.get(input);
-
-	std::cout << "Ready to send test" << std::endl;
-	std::cin.get(input);
-
 	std::cin.get(input);
 
 	// Clean up
@@ -159,7 +163,38 @@ cleanup:
 	return 0;
 }
 
-bool chooseMidiPort( RtMidiOut *rtmidi )
+bool chooseMidiInPort( RtMidiIn *rtmidi )
+{
+	std::string portName;
+	unsigned int i = 0, nPorts = rtmidi->getPortCount();
+	if ( nPorts == 0 ) {
+		std::cout << "No output ports available!" << std::endl;
+		return false;
+	}
+
+	if ( nPorts == 1 ) {
+		std::cout << "\nOpening " << rtmidi->getPortName() << std::endl;
+	}
+	else {
+		for ( i=0; i<nPorts; i++ ) {
+			portName = rtmidi->getPortName(i);
+			std::cout << "  Input port #" << i << ": " << portName << '\n';
+		}
+
+		do {
+			std::cout << "\nChoose a port number: ";
+			std::cin >> i;
+		} while ( i >= nPorts );
+	}
+
+	std::cout << "\n";
+	rtmidi->openPort( i );
+
+	return true;
+}
+
+
+bool chooseMidiOutPort( RtMidiOut *rtmidi )
 {
 	std::string portName;
 	unsigned int i = 0, nPorts = rtmidi->getPortCount();
