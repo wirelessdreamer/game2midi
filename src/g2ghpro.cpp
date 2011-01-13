@@ -27,13 +27,13 @@ void usage( void ) {
 
 void mycallback( double deltatime, std::vector< unsigned char > *message, void *userData)
 {
-	int base[6];
-	base[5] = 40;
-	base[4] = 45;
-	base[3] = 50;
-	base[2] = 55;
-	base[1] = 59;
-	base[0] = 64;
+	int base[6]; // these are the notes the 6 strings have when played open, based on channel
+	base[5] = 40; // so channel 5's (low e) midi note number is 40
+	base[4] = 45; // channel 4 - A midi note is 45
+	base[3] = 50; // channel 3 - D midi note is 45
+	base[2] = 55; // G
+	base[1] = 59; // B
+	base[0] = 64; // E (high)
 
 	std::vector<unsigned char> oMessage;
 	std::vector<unsigned char> o1Message;
@@ -44,11 +44,23 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 	int type = (int)message->at(0);
 	int channel = -1;
 
+	/* Note on and off messages have this type of format in decimal
+	 * Part     1  2  3
+	 * Sample  144 40 67
+	 *
+	 * Part 1 - event type (See the midi specification for more details http://www.midi.org/techspecs/midimessages.php)
+	 * 144-159 are note on events for channel 0 (144) - channel 16 (159)
+	 *
+	 * Part 2 - Note number
+	 *
+	 * Part 3 - Velocity
+	*/
 	if ((type >= 144) && (type <= 159)){ // Note On Event
 		std::cout << "Note: " << note << std::endl;
-		channel = type - 144;
+		channel = type - 144; // based on the note type we figure out the channel, as mentioned above
 
-		std::vector<unsigned char> XsysExMessage;
+/* I don't think this was really needed
+  		std::vector<unsigned char> XsysExMessage;
 		XsysExMessage.push_back( 240);
 		XsysExMessage.push_back( 8 );
 		XsysExMessage.push_back( 64 );
@@ -58,6 +70,20 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		XsysExMessage.push_back( velocity );
 		XsysExMessage.push_back( 247 );
 		midiout->sendMessage( &XsysExMessage );
+*/
+
+		/* Rock Band 3 Pro guitar SysEx Message Format
+		 *
+		 * Part    1  2  3  4 5 6  7  8
+		 * Sample 240 8 64 10 1 1 43 247
+		 *
+		 * Part 1 - Starting byte of a SysEx Message
+		 * Part 2,3,4 - Identifiers that this is a SysEx message used for Pro Guitar 
+		 * Part 5 - Message type (1 = set fret position, 5 = play string)
+		 * Part 6 - Midi Channel
+		 * Part 7 - Midi Note
+		 * Part 8 - End SysEx Message
+		*/
 
 		std::vector<unsigned char> sysExMessage;
 		sysExMessage.push_back( 240);
@@ -82,6 +108,9 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		midiout->sendMessage( &sysExMessage1 );
 	}else if ((type >= 128) && (type <= 143)){ // Note Off Event
 		channel = type - 128;
+		/* Here if a note other then the open string was played, we return the state of that string to open 
+		 * This is for the display in game of what frets are pushed down, but easily gets out of sync from ghost notes
+		 */
 		if (note != base[channel]){ // no need to return the fret pushed down back to open, if already open
 			std::vector<unsigned char> sysExMessage;
 			sysExMessage.push_back( 240);
