@@ -145,7 +145,8 @@ int main( int argc, char *argv[] )
 
 	// Don't ignore sysex, timing, or active sensing messages.
 
-	midiin->ignoreTypes( false, false, false );
+	// midiin->ignoreTypes( false, false, false );
+	midiin->ignoreTypes( false, true, true);
 
 	std::cout << "\nProcessing Midi Messages ... press <enter> to quit.\n";
 	char input;
