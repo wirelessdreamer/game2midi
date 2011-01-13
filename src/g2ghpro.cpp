@@ -59,7 +59,7 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		std::cout << "Note: " << note << std::endl;
 		channel = type - 144; // based on the note type we figure out the channel, as mentioned above
 
-/* I don't think this was really needed
+/* I don't think this was really needed - TODO still need to test this
   		std::vector<unsigned char> XsysExMessage;
 		XsysExMessage.push_back( 240);
 		XsysExMessage.push_back( 8 );
