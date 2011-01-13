@@ -162,7 +162,7 @@ int game2midi::read_config()
 		}
 	}
 
-	for (int mode_loop = 1; mode_loop <= total_simple_buttons; mode_loop++)
+	for (int mode_loop = 0; mode_loop <= total_simple_buttons; mode_loop++)
 	{	
 		ostringstream lbuffer;
 		lbuffer << mode_loop;
@@ -196,8 +196,8 @@ int game2midi::read_config()
 		{
 			cout << "Mode " << lbuffer.str() << endl;
 		}
-		for (int key_loop = 1; key_loop <= total_simple_buttons; key_loop++)
-		{// position 0 isn't used on key loop
+		for (int key_loop = 0; key_loop <= total_simple_buttons; key_loop++)
+		{
 			ostringstream tbuffer;
 			tbuffer << key_loop;
 			string itemname = lbuffer.str() + "simple" + tbuffer.str();
@@ -284,32 +284,109 @@ void game2midi::main_loop()
 }
 
 void game2midi::process_note_button(int on, int number){
+	int guitar_f1 = 5;
+	int guitar_f2 = 1;
+	int guitar_f3 = 0;
+	int guitar_f4 = 2;
+	int guitar_f5 = 3;
+	int guitar_up = 12;
+	int guitar_down = 14;
+	int guitar_start = 9;
+	int guitar_select = 8;
+	int button_note_base = 36;
+	int button_velocity = 100;
+	int button_channel = 0;
+	int mynote = 0;
+	if (on)
+	{
+		if (verbose){
+//			cout << "Pressed " << number << endl;
+		}
+		if ((number == guitar_up) ||(number == guitar_down)) {
+//			printf("pick in use 1\n");
+			pick_in_use=1;
+		}
+		if (number == guitar_f1){
+			// this is going to be for mode switches
+		}
+		if (number == guitar_f2){
+			// printf("saw 2\n");
+			holdnote[1] = 1;
+		}
+		if (number == guitar_f3){
+			// printf("saw 3\n");
+			holdnote[2] = 2;
+		}
+		if (number == guitar_f4){
+			// printf("saw 4\n");
+			holdnote[3] = 4;
+		}
+		if (number == guitar_f5){
+			// printf("saw 5\n");
+			holdnote[4] = 8;
+		}
+	}else{
+		if (verbose){
+//			cout << "Released " << number << endl;
+		}
+		if ((number == guitar_up) ||(number == guitar_down)) {
+//			printf("pick not in use 1\n");
+			pick_in_use=0;
+		}
+		if (number == guitar_f1){
+			// this is going to be for mode switches
+		}
+		if (number == guitar_f2){
+			// printf("saw 2\n");
+			holdnote[1] = 0;
+		}
+		if (number == guitar_f3){
+			// printf("saw 3\n");
+			holdnote[2] = 0;
+		}
+		if (number == guitar_f4){
+			// printf("saw 4\n");
+			holdnote[3] = 0;
+		}
+		if (number == guitar_f5){
+			// printf("saw 5\n");
+			holdnote[4] = 0;
+		}
+	}
+	mynote = holdnote[1] + holdnote[2] + holdnote[3] + holdnote[4] + button_note_base;
+	printf("last note: %i\tthis note %i\n", lastnote, mynote);
 
+	if ((mynote != button_note_base) && (pick_in_use)){
+		if (lastnote != 0){
+			printf("Pick in use 1\n");
+			send_note_up(button_channel,lastnote);
+			send_note_down(button_channel,mynote,button_velocity);
+		}else{
+			send_note_down(button_channel,mynote,button_velocity);
+		}
+	}else{
+		if (mynote == button_note_base){
+			send_note_up(button_channel,lastnote);
+		}
+	}
+	lastnote = mynote;
 }
 
 void game2midi::process_simple_button(int on, int number){
 	if (on) 
 	{ // button was pressed 
-		if (debug)
-		{
-			cout << "Pressed: " << number + 1 << endl;
-		}
-		for (int allsimple = 1; allsimple <= total_simple_buttons; allsimple++)
+		for (int allsimple = 0; allsimple <= total_simple_buttons; allsimple++)
 		{
 			if (simple_values[allsimple] == number)
 			{
 				if (verbose){
-					cout << "Data: " << simple[mode][allsimple].channel << "," << simple[mode][allsimple].note << "," << simple[mode][allsimple].velocity << endl;
+					cout << "Button : " << number << " State: " << on << endl;
 				}
 				send_note_down(simple[mode][allsimple].channel,simple[mode][allsimple].note, simple[mode][allsimple].velocity);
 			}
 		}
 	}else{ // button was released
-		if (debug)
-		{
-			cout << "Released: " << number + 1 << endl;
-		}
-		for (int allsimple = 1; allsimple <= total_simple_buttons; allsimple++)
+		for (int allsimple = 0; allsimple <= total_simple_buttons; allsimple++)
 		{
 			if (simple_values[allsimple] == number)
 			{

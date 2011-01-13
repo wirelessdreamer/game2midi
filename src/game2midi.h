@@ -41,6 +41,8 @@ public:
 	int total_macros;
 	int macro_values[MAX_MACROS];
 	int mode;
+	int pick_in_use;
+	int mynote;
 	int button_state[MAX_BUTTONS];
 	int holdnote[MAX_BUTTONS];
 	int holdchannel[MAX_BUTTONS];
@@ -86,6 +88,7 @@ public:
 
 game2midi::game2midi(string setconfig, int setdevice, bool setverbose, bool setdebug){
 	total_modes = 0;
+	pick_in_use = 0;
 	mode = 1;
 	axes = 0;
 	verbose = setverbose;
