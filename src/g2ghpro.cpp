@@ -77,12 +77,12 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		 * Part    1  2  3  4 5 6  7  8
 		 * Sample 240 8 64 10 1 1 43 247
 		 *
-		 * Part 1 - Starting byte of a SysEx Message
+		 * Part 1 - Starting byte of a SysEx Message (always 240)
 		 * Part 2,3,4 - Identifiers that this is a SysEx message used for Pro Guitar 
 		 * Part 5 - Message type (1 = set fret position, 5 = play string)
 		 * Part 6 - Midi Channel
 		 * Part 7 - Midi Note
-		 * Part 8 - End SysEx Message
+		 * Part 8 - End SysEx Message (always 247)
 		*/
 
 		std::vector<unsigned char> sysExMessage;
@@ -108,8 +108,11 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		midiout->sendMessage( &sysExMessage1 );
 	}else if ((type >= 128) && (type <= 143)){ // Note Off Event
 		channel = type - 128;
-		/* Here if a note other then the open string was played, we return the state of that string to open 
-		 * This is for the display in game of what frets are pushed down, but easily gets out of sync from ghost notes
+		/* 	Here if a note other then the open string was played 
+			we return the state of that string to open 
+			This is for the display in game of what frets are 
+			pushed down, but easily gets out of sync from 
+			ghost notes
 		 */
 		if (note != base[channel]){ // no need to return the fret pushed down back to open, if already open
 			std::vector<unsigned char> sysExMessage;
@@ -172,9 +175,8 @@ int main( int argc, char *argv[] )
 	// queue instead of sent to the callback function.
 	midiin->setCallback( &mycallback );
 
-	// Don't ignore sysex, timing, or active sensing messages.
-
-	// midiin->ignoreTypes( false, false, false );
+	// Don't ignore sysex, Ignore timing, and active sensing messages
+	// I was getting crashes with these activated, and a roland vg-99 connected
 	midiin->ignoreTypes( false, true, true);
 
 	std::cout << "\nProcessing Midi Messages ... press <enter> to quit.\n";
