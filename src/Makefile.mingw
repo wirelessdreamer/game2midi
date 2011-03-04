@@ -1,9 +1,5 @@
-CC = gcc
-CFLAGS = -Wall -pipe -fPIC -funroll-loops
-CFLAGS += -D__WINDOWS_MM__
-
 all: 
-        mkdir deps
+	mkdir -p deps
 	g++ -DHAVE_CONFIG_H -I. -I.. -g -O2 -D__WINDOWS_MM__ -g -O2 -MT RtMidi.o -MD -MP -MF deps/RtMidi.Tpo -c -o RtMidi.o RtMidi.cpp
 	g++ -DHAVE_CONFIG_H -I. -I.. -g -O2 -D__WINDOWS_MM__ -g -O2 -MT -g2ghpro.o -MD -MP -MF deps/g2ghpro.TPO -c -o g2ghpro.o g2ghpro.cpp
-	g++ -g -O2 -o g2ghpro RtMidi.o g2ghpro.o -lwinmm
+	g++ -g -Wl,--enable-auto-import -O2 -o g2ghpro RtMidi.o g2ghpro.o -lwinmm 
