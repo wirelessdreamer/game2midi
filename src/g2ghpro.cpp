@@ -11,29 +11,46 @@ wirelessdreamer @t gmai<L> d.t com
 
 #include <iostream>
 #include <cstdlib>
+#include <unistd.h>
 #include "RtMidi.h"
 
 RtMidiOut *midiout;
 bool chooseMidiOutPort( RtMidiOut *rtmidi );
 bool chooseMidiInPort( RtMidiIn *rtmidi );
+int mode = 0;
 
 void usage( void ) {
 	// Error function in case of incorrect command-line
 	// argument specifications.
-	std::cout << "\nuseage: g2ghpro <port>\n";
-	std::cout << "    where port = the device to use (default = 0).\n\n";
+	std::cout << "\nuseage: g2ghpro <-m MODE>\n";
+	std::cout << "    Mode Values:\n";
+	std::cout << "    0 = electric guitar\n";
+	std::cout << "    1 = electric guitar\n";
+	std::cout << "    2 = electric guitar\n";
 	exit( 0 );
 }
 
 void mycallback( double deltatime, std::vector< unsigned char > *message, void *userData)
 {
 	int base[6]; // these are the notes the 6 strings have when played open, based on channel
-	base[5] = 40; // so channel 5's (low e) midi note number is 40
-	base[4] = 45; // channel 4 - A midi note is 45
-	base[3] = 50; // channel 3 - D midi note is 45
-	base[2] = 55; // G
-	base[1] = 59; // B
-	base[0] = 64; // E (high)
+	if (mode == 0){ // guitar mode
+		base[5] = 40; // so channel 5's (low e) midi note number is 40
+		base[4] = 45; // channel 4 - A midi note is 45
+		base[3] = 50; // channel 3 - D midi note is 45
+		base[2] = 55; // G
+		base[1] = 59; // B
+		base[0] = 64; // E (high)
+	}else if(mode == 1){ // 5 string bass mode
+		base[4] = 40; // so channel 5's (low e) midi note number is 40
+		base[3] = 45; // channel 4 - A midi note is 45
+		base[2] = 50; // channel 3 - D midi note is 45
+		base[1] = 55; // G
+	}else if(mode == 2){ // 6 string bass mode
+		base[5] = 40; // so channel 5's (low e) midi note number is 40
+		base[4] = 45; // channel 4 - A midi note is 45
+		base[3] = 50; // channel 3 - D midi note is 45
+		base[2] = 55; // G
+	}
 
 	std::vector<unsigned char> oMessage;
 	std::vector<unsigned char> o1Message;
@@ -131,10 +148,26 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 
 int main( int argc, char *argv[] )
 {
+	extern char *optarg;
+	int c;
+
+	while ((c = getopt(argc, argv, "m:")) != -1){
+		switch (c){
+			case 'm': 
+				mode = atoi(optarg);
+				if (mode == 0){
+					std::cout << "Set mode to 6 string guitar" << std::endl;
+				}else if (mode == 1){
+					std::cout << "Set mode to 5 string Bass, ignoring the top string" << std::endl;
+				}else if (mode == 2){
+					std::cout << "Set mode to 6 string Bass, ignoring the top two strings" << std::endl;
+				}
+				break;
+		}
+	}
+
 	RtMidiIn *midiin = 0;
 
-	// Minimal command-line check.
-	if ( argc > 2 ) usage();
 
 	// RtMidiIn constructor
 	try {
