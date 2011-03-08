@@ -25,8 +25,9 @@ void usage( void ) {
 	std::cout << "\nuseage: g2ghpro <-m MODE>\n";
 	std::cout << "    Mode Values:\n";
 	std::cout << "    0 = electric guitar\n";
-	std::cout << "    1 = electric guitar\n";
-	std::cout << "    2 = electric guitar\n";
+	std::cout << "    1 = 4 string bass\n";
+	std::cout << "    2 = 5 string bass\n";
+	std::cout << "    3 = 6 string bass\n";
 	exit( 0 );
 }
 
@@ -40,12 +41,17 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		base[2] = 55; // G
 		base[1] = 59; // B
 		base[0] = 64; // E (high)
-	}else if(mode == 1){ // 5 string bass mode
+	}else if(mode == 1){ // 4 string bass mode
+		base[3] = 40; // so channel 5's (low e) midi note number is 40
+		base[2] = 45; // channel 4 - A midi note is 45
+		base[1] = 50; // channel 3 - D midi note is 45
+		base[0] = 55; // G
+	}else if(mode == 2){ // 5 string bass mode
 		base[4] = 40; // so channel 5's (low e) midi note number is 40
 		base[3] = 45; // channel 4 - A midi note is 45
 		base[2] = 50; // channel 3 - D midi note is 45
 		base[1] = 55; // G
-	}else if(mode == 2){ // 6 string bass mode
+	}else if(mode == 3){ // 6 string bass mode
 		base[5] = 40; // so channel 5's (low e) midi note number is 40
 		base[4] = 45; // channel 4 - A midi note is 45
 		base[3] = 50; // channel 3 - D midi note is 45
