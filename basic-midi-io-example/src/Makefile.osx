@@ -1,5 +1,5 @@
 all: 
 	mkdir -p deps
-	g++ -DHAVE_CONFIG_H -I. -I.. -g -O2 -D__MACOSX_CORE__ -g -O2 -MT RtMidi.o -MD -MP -MF deps/RtMidi.Tpo -c -o RtMidi.o RtMidi.cpp
-	g++ -DHAVE_CONFIG_H -I. -I.. -g -O2 -D__MACOSX_CORE__ -g -O2 -MT -g2ghpro.o -MD -MP -MF deps/g2ghpro.TPO -c -o g2ghpro.o g2ghpro.cpp
-	g++ -g -O2 -o g2ghpro RtMidi.o g2ghpro.o -framework CoreMidi -framework CoreAudio -framework CoreFoundation
+	g++ -DHAVE_CONFIG_H -I. -I.. -g -O2 -D__MACOSX_CORE__ -g -O2 -MT midiio.o -MD -MP -MF deps/midiio.Tpo -c -o midiio.o midiio.cpp
+	g++ -DHAVE_CONFIG_H -I. -I.. -g -O2 -D__MACOSX_CORE__ -g -O2 -MT -midiio.o -MD -MP -MF deps/midiio.TPO -c -o midiio.o midiio.cpp
+	g++ -g -O2 -o midiio RtMidi.o midiio.o -framework CoreMidi -framework CoreAudio -framework CoreFoundation

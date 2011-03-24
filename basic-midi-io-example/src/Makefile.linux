@@ -1,0 +1,5 @@
+all: 
+	mkdir -p deps
+	g++ -DHAVE_CONFIG_H -I. -I.. -g -O2 -D__LINUX_ALSASEQ__ -g -O2 -MT midiio.o -MD -MP -MF deps/RtMidi.Tpo -c -o RtMidi.o RtMidi.cpp
+	g++ -DHAVE_CONFIG_H -I. -I.. -g -O2 -D__LINUX_ALSASEQ__ -g -O2 -MT -midiio.o -MD -MP -MF deps/midiio.TPO -c -o midiio.o midiio.cpp
+	g++ -g -O2 -o midiio RtMidi.o midiio.o -lasound
