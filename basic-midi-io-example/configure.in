@@ -18,8 +18,13 @@ compile_target=unknown
 case "${host}" in
 	*-mingw32*)
 	compile_target=win
-	CPPFLAGS=-D__WINDOWS_MM__
+	CPPFLAGS="$CPPFLAGS -D__WINDOWS_MM__"
 	LIBS="$LIBS -lwinmm"
+	;;
+	*-darwin*)
+	dnl we should add checks here to make sure osx dev lib's are installed
+	CPPFLAGS="$CPPFLAGS -D__MACOSX_CORE__"
+	LIBS="$LIBS -framework CoreMidi -framework CoreAudio -framework CoreFoundation"
 	;;
 	*)
 	compile_target=linux
