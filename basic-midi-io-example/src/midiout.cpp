@@ -70,6 +70,7 @@ int main( int argc, char *argv[] )
 	int channel = 0;
 	int note = 41;
 
+	// Send a sysex message
 	std::vector<unsigned char> sysExMessage;
 	sysExMessage.push_back( 240);
 	sysExMessage.push_back( 8 );
@@ -81,6 +82,12 @@ int main( int argc, char *argv[] )
 	sysExMessage.push_back( 247 );
 	midiout->sendMessage( &sysExMessage );
 
+	std::vector<unsigned char> message;
+
+	message[0] = 144 + channel;	// Message type: note on + channel
+	message[1] = 41;		// Note number
+	message[2] = 90;		// Note Velocity
+	midiout->sendMessage( &message );
 
 	return 0;
 }
