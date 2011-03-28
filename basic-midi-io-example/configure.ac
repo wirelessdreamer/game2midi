@@ -14,8 +14,9 @@ AC_TYPE_SIZE_T
 
 
 dnl Detect OS we're building on
-compile_target=unknown
-echo "Host Value: $host"
+compile_target=$host
+echo "try 1"
+echo "Host Value: \'${compile_target}'"
 
 case "${host}" in
 	*-mingw32*)
