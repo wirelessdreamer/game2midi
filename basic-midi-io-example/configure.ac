@@ -12,11 +12,9 @@ AC_CHECK_HEADERS(unistd.h)
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
 
-
 dnl Detect OS we're building on
-compile_target=$host
-echo "try 1"
-echo "Host Value: \'${compile_target}'"
+AC_CANONICAL_HOST
+echo "Host Value: '${host}'"
 
 case "${host}" in
 	*-mingw32*)
@@ -29,7 +27,7 @@ case "${host}" in
 	CPPFLAGS="$CPPFLAGS -D__MACOSX_CORE__"
 	LIBS="$LIBS -framework CoreMidi -framework CoreAudio -framework CoreFoundation"
 	;;
-	*)
+	*-linux-gnu)
 	compile_target=linux
 	dnl Check for ALSA
 	AC_CHECK_LIB(asound, snd_seq_event_output_direct,alsalib=yes,alsalib=no)
