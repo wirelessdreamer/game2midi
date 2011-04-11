@@ -10,6 +10,7 @@ wirelessdreamer @t gmai<L> d.t com
 *****************************************/
 
 #include <iostream>
+#include <iomanip>
 #include <cstdlib>
 #include <unistd.h>
 #include "RtMidi.h"
@@ -18,12 +19,13 @@ RtMidiOut *midiout;
 bool chooseMidiOutPort( RtMidiOut *rtmidi );
 bool chooseMidiInPort( RtMidiIn *rtmidi );
 int mode = 0;
+int count = 0;
 
 void usage( void ) {
 	// Error function in case of incorrect command-line
 	// argument specifications.
-	std::cout << "\nuseage: g2ghpro <-m MODE>\n";
-	std::cout << "    Mode Values:\n";
+	std::cout << "\nusage: g2ghpro [-m MODE]\n";
+	std::cout << "    Mode values:\n";
 	std::cout << "    0 = electric guitar\n";
 	std::cout << "    1 = 4 string bass\n";
 	std::cout << "    2 = 5 string bass\n";
@@ -34,6 +36,9 @@ void usage( void ) {
 void mycallback( double deltatime, std::vector< unsigned char > *message, void *userData)
 {
 	int base[6]; // these are the notes the 6 strings have when played open, based on channel
+	int channel_offset = 0;
+	int note_offset = 0;
+	int min_velocity = 0; // Minimum velocity for a note on event
 	if (mode == 0){ // guitar mode
 		base[5] = 40; // so channel 5's (low e) midi note number is 40
 		base[4] = 45; // channel 4 - A midi note is 45
@@ -42,28 +47,24 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		base[1] = 59; // B
 		base[0] = 64; // E (high)
 	}else if(mode == 1){ // 4 string bass mode
-		base[3] = 40; // so channel 5's (low e) midi note number is 40
-		base[2] = 45; // channel 4 - A midi note is 45
-		base[1] = 50; // channel 3 - D midi note is 45
-		base[0] = 55; // G
+		base[5] = 28; // E
+		base[4] = 33; // A
+		base[3] = 38; // D
+		base[2] = 43; // G
+		channel_offset = 1;  // assume 4STR-2 (centered)
+		note_offset = 40 - 28;  // shift bass note to guitar note
 	}else if(mode == 2){ // 5 string bass mode
-		base[4] = 40; // so channel 5's (low e) midi note number is 40
-		base[3] = 45; // channel 4 - A midi note is 45
-		base[2] = 50; // channel 3 - D midi note is 45
-		base[1] = 55; // G
+	  // TODO
 	}else if(mode == 3){ // 6 string bass mode
-		base[5] = 40; // so channel 5's (low e) midi note number is 40
-		base[4] = 45; // channel 4 - A midi note is 45
-		base[3] = 50; // channel 3 - D midi note is 45
-		base[2] = 55; // G
-	}
+	  // TODO
+ 	}
 
 	std::vector<unsigned char> oMessage;
 	std::vector<unsigned char> o1Message;
 	std::vector<unsigned char> nMessage;
 	int note = (int)message->at(1);
-	int velocity = (int)message->at(2);
-	velocity = 110;
+	int velocity_orig = (int)message->at(2);
+	int velocity = 110;
 	int type = (int)message->at(0);
 	int channel = -1;
 
@@ -78,9 +79,64 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 	 *
 	 * Part 3 - Velocity
 	*/
-	if ((type >= 144) && (type <= 159)){ // Note On Event
-		std::cout << "Note: " << note << std::endl;
-		channel = type - 144; // based on the note type we figure out the channel, as mentioned above
+	if ((type >= 144) && (type <= 159) && (velocity_orig > min_velocity))  { // Note On Event
+		channel = type - 144 + channel_offset;  // based on the note type we figure out the channel
+
+	        char string;
+		int fret;
+		switch (channel) {
+		case 5: 
+		  string = 'E';
+		  fret = note - base[channel];
+		  break;
+		case 4: 
+		  string = 'A';
+		  fret = note - base[channel];
+		  break;
+		case 3: 
+		  string = 'D';
+		  fret = note - base[channel];
+		  break;
+		case 2: 
+		  string = 'G';
+		  fret = note - base[channel];
+		  break;
+		case 1: 
+		  string = 'B';
+		  fret = note - base[channel];
+		  break;
+		case 0: 
+		  string = 'e';
+		  fret = note - base[channel];
+		  break;
+		default:
+		  string = '?';
+		  fret = 0;
+		  break;
+		}
+	  	std::cout << "#";
+	  	std::cout.fill(' ');
+	  	std::cout << std::setw(6) << count++;
+		std::cout << "  note: " << std::setw(3) << note;
+		std::cout << "  type: " << std::setw(3) << type;
+		std::cout << "  velocity: " << std::setw(3) << velocity_orig;
+		std::cout << "  ->  ";
+		std::cout << string << " " << std::setw(2) << fret;
+		std::cout << std::endl;
+
+
+/* I don't think this was really needed - TODO still need to test this
+  		std::vector<unsigned char> XsysExMessage;
+		XsysExMessage.push_back( 240);
+		XsysExMessage.push_back( 8 );
+		XsysExMessage.push_back( 64 );
+		XsysExMessage.push_back( 10  );
+		XsysExMessage.push_back(1);
+		XsysExMessage.push_back( channel + 1);
+		XsysExMessage.push_back( velocity );
+		XsysExMessage.push_back( 247 );
+		midiout->sendMessage( &XsysExMessage );
+*/
 
 		/* Rock Band 3 Pro guitar SysEx Message Format
 		 *
@@ -101,8 +157,8 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		sysExMessage.push_back( 64 ); 
 		sysExMessage.push_back( 10  );
 		sysExMessage.push_back( 1); // 1 sets fret position
-		sysExMessage.push_back( channel + 1 ); // channel
-		sysExMessage.push_back( note );
+		sysExMessage.push_back( channel + 1); // channel
+		sysExMessage.push_back( note + note_offset);  // Bass: pose as guitar
 		sysExMessage.push_back( 247 );
 		midiout->sendMessage( &sysExMessage );
 
@@ -112,29 +168,40 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		sysExMessage1.push_back( 64 );
 		sysExMessage1.push_back( 10  );
 		sysExMessage1.push_back( 5); // 5 for playing a string
-		sysExMessage1.push_back( channel + 1 ); // channel
-		sysExMessage1.push_back( velocity );
+		sysExMessage1.push_back( channel + 1); // channel
+		sysExMessage1.push_back( velocity_orig );
 		sysExMessage1.push_back( 247 );
 		midiout->sendMessage( &sysExMessage1 );
 	}else if ((type >= 128) && (type <= 143)){ // Note Off Event
-		channel = type - 128;
+		channel = type - 128 + channel_offset;
 		/* 	Here if a note other then the open string was played 
 			we return the state of that string to open 
 			This is for the display in game of what frets are 
 			pushed down, but easily gets out of sync from 
 			ghost notes
-		 */
+	 	*/
 		if (note != base[channel]){ // no need to return the fret pushed down back to open, if already open
+
+			note = base[channel] + note_offset;
+			std::cout << "#";
+	  		std::cout.fill(' ');
+	  		std::cout << std::setw(6) << count++;
+			std::cout << "  Note off event. Sending ";
+			std::cout << "  note: " << std::setw(3) << note;
+			std::cout << "  to channel " << channel << "\n";
+
+
 			std::vector<unsigned char> sysExMessage;
 			sysExMessage.push_back( 240);
 			sysExMessage.push_back( 8 );
 			sysExMessage.push_back( 64 );
 			sysExMessage.push_back( 10  );
-			sysExMessage.push_back(1);
+			sysExMessage.push_back( 1);
 			sysExMessage.push_back( channel + 1);
-			sysExMessage.push_back( velocity );
+			sysExMessage.push_back( note );
 			sysExMessage.push_back( 247 );
 			midiout->sendMessage( &sysExMessage );
+
 		}
 	}
 }
@@ -148,15 +215,23 @@ int main( int argc, char *argv[] )
 		switch (c){
 			case 'm': 
 				mode = atoi(optarg);
-				if (mode == 0){
-					std::cout << "Set mode to 6 string guitar" << std::endl;
-				}else if (mode == 1){
-					std::cout << "Set mode to 5 string Bass, ignoring the top string" << std::endl;
-				}else if (mode == 2){
-					std::cout << "Set mode to 6 string Bass, ignoring the top two strings" << std::endl;
-				}
+				break;
+			case '?': 
+				usage();
 				break;
 		}
+	}
+	if (mode == 0){
+	  std::cout << "Set mode to 6 string guitar" << std::endl;
+	}else if (mode == 1){
+	  std::cout << "Set mode to 4 string bass" << std::endl;
+	}else if (mode == 2){
+	  std::cout << "Set mode to 5 string bass, ignoring the top string" << std::endl;
+	}else if (mode == 3){
+	  std::cout << "Set mode to 6 string bass, ignoring the top two strings" << std::endl;
+	} else {
+	  std::cout << "error: undefined mode" << std::endl;
+	  usage();
 	}
 
 	RtMidiIn *midiin = 0;
