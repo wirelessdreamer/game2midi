@@ -41,12 +41,15 @@ int bend[6] ={0,0,0,0,0,0};
 int bend_range=24;
 int bend_mode=0;
 int verbose_mode=1;
-
+int semitone =0; 
+int tolerance=5; // Set the pitch tolerance value
+int lower_tolerance=0;
+int channel = -1;
 
 void usage( void ) {
 	// Error function in case of incorrect command-line
 	// argument specifications.
-	std::cout << "\nusage: g2ghpro [-m GUITAR MODE -b BEND MODE -v VERBOSE MODE]\n\n";
+	std::cout << "\nusage: g2ghpro [-m <GUITAR MODE> -b <BEND MODE>  -t <PITCH BEND TOLERANCE> -v <VERBOSE MODE>]\n\n";
 	std::cout << "    Guitar Mode values:\n";
 	std::cout << "    0 = electric guitar\n";
 	std::cout << "    1 = 4 string bass\n";
@@ -54,6 +57,9 @@ void usage( void ) {
 	std::cout << "    Pitch Bend Mode values:\n";
 	std::cout << "    0 = (Default) For +/- 24 semitones (Roland GR55)\n";
 	std::cout << "    1 = For +/- 12 semitones (Roland VG99/VB99) \n\n";
+	std::cout << "    Pitch Bend Tolerance as a percentage of the next note above or below:\n";
+	std::cout << "    0 = This disables the handling of pitch bend events.\n";
+	std::cout << "    1 - 50 = Minimum value is 1% and maximum is 50%. The default value is 5%.\n\n";
 	std::cout << "    Verbose Bend Mode values:\n";
 	std::cout << "    0 = Silent: No output of midi messages to the terminal.\n";
 	std::cout << "    1 = Default: Output note on, note off and pitch bend events being sent to rock band 3 midi pro adapter.\n";
@@ -130,29 +136,7 @@ void cons_output( int note_event, int midi_status, int midi_pitch, int midi_chan
 
 void mycallback( double deltatime, std::vector< unsigned char > *message, void *userData)
 {
-	if (mode == 0){ // guitar mode
-		base[5] = 40; // channel 6 - E (low) midi note is 40
-		base[4] = 45; // channel 5 - A midi note is 45
-		base[3] = 50; // channel 4 - D midi note is 50
-		base[2] = 55; // channel 3 - G midi note is 55
-		base[1] = 59; // channel 2 - b midi note is 59
-		base[0] = 64; // channel 1 - e' (high) midi note is 64
-	}else if(mode == 1){ // 4 string bass mode
-		base[5] = 28; // channel 5 - E (low) midi note is 28 (one octave lower and the channel is one less than guitar with centered pickup)
-		base[4] = 33; // channel 4 - A midi note is 33
-		base[3] = 38; // channel 3 - D midi note is 38
-		base[2] = 43; // channel 2 - G midi note is 43
-		channel_offset = 1;  // bass hex pickup is assumed to be installed as 4STR-2 (centered) position
-		pitch_offset = 40 - 28;  // shift bass note to guitar note by one octave
-	}else if(mode == 2){ // 5 string bass mode 5STR-Lo2 (Low B string at channel 5)
-		base[6] = 23; // channel 6 - B (low) midi note is 23. This is ignored by rock band as there is no channel above E
-		base[5] = 28; // channel 5 - E midi note is 28
-		base[4] = 33; // channel 4 - A midi note is 33
-		base[3] = 38; // channel 3 - D midi note is 38
-		base[2] = 43; // channel 2 - G midi note is 43
-		channel_offset = 1;  // The bass hex pickup covers low B to G when installed in 5STR-Lo2 (centered) position
-		pitch_offset = 40 - 28;  // shift bass note to guitar note by one octave
- 	}
+
 
 
 	/* These look unused in this code
@@ -168,8 +152,8 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 	int status = (int)message->at(0);
 	int data1 = (int)message->at(1);
 	int data2 = (int)message->at(2);
-	int channel = -1;
-		/* Note on and off messages have this type of format in decimal
+
+	/* Note on and off messages have this type of format in decimal
 	 * Part     1  2  3
 	 * Sample  144 40 67
 	 *
@@ -209,9 +193,11 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 
 	}
 	
-	if ((status >= 224) && (status <= 230)){
-		channel = status - 224 + channel_offset; // Calculate which channel sent the pitch bend 
-		note[channel] = 3; // Pitch bend event
+	if (tolerance >0){  // Pitch bend events are not processed when the tolerance is set to 0. 
+		if ((status >= 224) && (status <= 230)){
+			channel = status - 224 + channel_offset; // Calculate which channel sent the pitch bend 
+			note[channel] = 3; // Pitch bend event
+		}
 	}
 
 
@@ -299,11 +285,7 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		if (verbose_mode >1){
 			std::cout << "Total shift in pitch is: pitch " << pitch[channel] << " " << pitch_shift << " on channel "<< channel << ".\n"; 		
 		}
-		// 8192 / 24 = 340.5 bend (rounded down) per semitone
-		int semitone = 8192 / bend_range;	
-		int tolerance=5; // Set the pitch tolerance value
-		int lower_tolerance = semitone - ( semitone / tolerance);
-		
+				
 	
 		int fret_change = (pitch_shift / semitone); // integer division should only give the whole semitone changes
 		
@@ -352,9 +334,10 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 int main( int argc, char *argv[] )
 {
 	extern char *optarg;
-	int c;
+	int c, tolerance_input=0;
 
-	while ((c = getopt(argc, argv, "m:b:v:")) != -1){
+
+	while ((c = getopt(argc, argv, "m:b:v:it:")) != -1){
 		switch (c){
 			case 'm': 
 				mode = atoi(optarg);
@@ -365,34 +348,27 @@ int main( int argc, char *argv[] )
 			case 'v':
 				verbose_mode=atoi(optarg);
 				break;				
+			case 't':
+				tolerance=atoi(optarg);
+				break;				
 			case '?': 
 				usage();
 				break;
 		}
 	}
 	if (mode == 0){
-	  std::cout << "Set mode to 6 string guitar" << std::endl;
+	  std::cout << "Set mode to 6 string guitar.\n" << std::endl;
 	}else if (mode == 1){
-	  std::cout << "Set mode to 4 string bass" << std::endl;
+	  std::cout << "Set mode to 4 string bass.\n" << std::endl;
 	}else if (mode == 2){
-	  std::cout << "Set mode to 5 string bass, ignoring the top string" << std::endl;
+	  std::cout << "Set mode to 5 string bass, ignoring the top string.\n" << std::endl;
 	}else if (mode == 3){
-	  std::cout << "Set mode to 6 string bass, ignoring the top two strings" << std::endl;
+	  std::cout << "Set mode to 6 string bass, ignoring the top two strings.\n" << std::endl;
 	} else {
-	  std::cout << "error: undefined mode" << std::endl;
+	  std::cout << "error: undefined mode\n" << std::endl;
 	  usage();
 	}
-
-	if (bend_mode == 0){
-		bend_range = 24; // Set maximum pitch bend range to 24 semitone range such as the GR55
-	}
-	else if (bend_mode == 1){
-		bend_range = 12; // Set maximum pitch bend range of semitones to 12 for VB99 or similar devices.
-		std::cout << "Setting pitch bend range to +/- 12 semitones for VB99 or similar midi devices.\n";
-	}
-	else {
-		bend_range=24; // Default to 24 semitone range if other value has been set by accident.
-	}
+	
 
 	switch (verbose_mode){
 	case 0:
@@ -404,6 +380,68 @@ int main( int argc, char *argv[] )
 	default:
 		verbose_mode = 1; // Default verbose level and all other cases fallback to verbose mode 1
 		break;
+	}
+
+
+	if (bend_mode == 0){
+		bend_range = 24; // Set maximum pitch bend range to 24 semitone range such as the GR55
+	}
+	else if (bend_mode == 1){
+		bend_range = 12; // Set maximum pitch bend range of semitones to 12 for VB99 or similar devices.
+		std::cout << "Setting pitch bend range to +/- 12 semitones for VB99 or similar midi devices.\n";
+	}
+	else {
+		bend_range=24; // Default to 24 semitone range if other value has been set by accident.
+	}
+	// 8192 / 24 = 340.5 bend (rounded down) per semitone
+	semitone = 8192 / bend_range; // Calculate the value of a semitone (1 fret) based on the pitch bend range of the device (default = 24 for a GR55, while the VB99 is only +/-12 semitones before it sends a new note on event)
+	
+	if (verbose_mode >1){
+		std::cout << "The semitone value is " << semitone << ".\n";
+	}
+
+	
+	if (tolerance < 1){
+		tolerance =0; // Minimum value for pitch bend
+		std::cout <<"The minimum value for the pitch bend tolerance is 1%. Disabling pitch bend.\n";
+	}else if (tolerance > 50){
+		tolerance =50; // Maximum value for pitch bend
+		std::cout <<"The maxiumum value for the pitch bend tolerance is 50%. Using 50%.\n";
+	}	
+
+	lower_tolerance = semitone - ( semitone * tolerance / 100);
+
+	if ((verbose_mode >1)&&(tolerance>0)){
+		std::cout << "The pitch bend semitone tolerance is " << tolerance << "% = " << semitone << " +/- " << semitone - lower_tolerance <<  ".\n";
+	}
+
+	if (mode == 0){ // guitar mode
+		base[5] = 40; // channel 6 - E (low) midi note is 40
+		base[4] = 45; // channel 5 - A midi note is 45
+		base[3] = 50; // channel 4 - D midi note is 50
+		base[2] = 55; // channel 3 - G midi note is 55
+		base[1] = 59; // channel 2 - b midi note is 59
+		base[0] = 64; // channel 1 - e' (high) midi note is 64
+	}else if(mode == 1){ // 4 string bass mode
+		base[5] = 28; // channel 5 - E (low) midi note is 28 (one octave lower and the channel is one less than guitar with centered pickup)
+		base[4] = 33; // channel 4 - A midi note is 33
+		base[3] = 38; // channel 3 - D midi note is 38
+		base[2] = 43; // channel 2 - G midi note is 43
+		channel_offset = 1;  // bass hex pickup is assumed to be installed as 4STR-2 (centered) position
+		pitch_offset = 40 - 28;  // shift bass note to guitar note by one octave
+	}else if(mode == 2){ // 5 string bass mode 5STR-Lo2 (Low B string at channel 5)
+		base[6] = 23; // channel 6 - B (low) midi note is 23. This is ignored by rock band as there is no channel above E
+		base[5] = 28; // channel 5 - E midi note is 28
+		base[4] = 33; // channel 4 - A midi note is 33
+		base[3] = 38; // channel 3 - D midi note is 38
+		base[2] = 43; // channel 2 - G midi note is 43
+		channel_offset = 1;  // The bass hex pickup covers low B to G when installed in 5STR-Lo2 (centered) position
+		pitch_offset = 40 - 28;  // shift bass note to guitar note by one octave
+ 	}
+
+	for (channel=0; channel <6; channel++){ // Initalise the midi pitch and rock band pitch to open strings before opening the midi port.
+		pitch[channel]=base[channel];
+		rb_pitch[channel]=base[channel]+pitch_offset;
 	}
 
 	RtMidiIn *midiin = 0;
