@@ -133,17 +133,53 @@ void cons_output( int note_event, int midi_status, int midi_pitch, int midi_chan
 	
 }
 
+void send_fret_to_rbmpa( int send_fret_channel, int send_fret_pitch ){
+
+	std::vector<unsigned char> sysExMessage;
+	sysExMessage.push_back( 240);
+	sysExMessage.push_back( 8 );
+	sysExMessage.push_back( 64 );
+	sysExMessage.push_back( 10  );
+	sysExMessage.push_back( 1); // 1 for sending pitch which results in the fret position
+	sysExMessage.push_back( send_fret_channel + 1);
+	sysExMessage.push_back( send_fret_pitch );  // Send a pitch that is calculated using the adjusted pitch, any pitch offset (guitar or bass ocatave) and any alternative tuning on that string
+	sysExMessage.push_back( 247 );
+	midiout->sendMessage( &sysExMessage );	
+}
+
+void send_note_to_rbmpa(int send_note_channel, int send_note_pitch, int send_note_velocity){
+
+	/* Rock Band 3 Pro guitar SysEx Message Format
+	 *
+	 * Part    1  2  3  4 5 6  7  8
+	 * Sample 240 8 64 10 1 1 43 247
+	 *
+	 * Part 1 - Starting byte of a SysEx Message (always 240)
+	 * Part 2,3,4 - Identifiers that this is a SysEx message used for Pro Guitar 
+	 * Part 5 - Message type (1 = set fret position, 5 = play string)
+	 * Part 6 - Midi Channel
+	 * Part 7 - Midi Note
+	 * Part 8 - End SysEx Message (always 247)
+	*/
+
+	send_fret_to_rbmpa( send_note_channel, send_note_pitch ); // Send the new position to the rock band midi pro adapter
+	
+	// Now send a strummed note using the midi velocity
+	std::vector<unsigned char> sysExMessage;
+	sysExMessage.push_back( 240);
+	sysExMessage.push_back( 8 );
+	sysExMessage.push_back( 64 );
+	sysExMessage.push_back( 10  );
+	sysExMessage.push_back( 5); // 5 for playing a string
+	sysExMessage.push_back( send_note_channel + 1); // channel
+	sysExMessage.push_back( send_note_velocity );
+	sysExMessage.push_back( 247 );
+	midiout->sendMessage( &sysExMessage );
+}
 
 void mycallback( double deltatime, std::vector< unsigned char > *message, void *userData)
 {
 
-
-
-	/* These look unused in this code
-	 * std::vector<unsigned char> oMessage;
-	 * std::vector<unsigned char> o1Message;
-	 * std::vector<unsigned char> nMessage;  */
-	
 	/* Midi messages are constructed from 3 data packets:
 	 *  Status: Contains the event type and the channel. We are interested in note on, note off and pitch bend events)
 	 *  Data1: This contains the first data packet which is a 7 bits long. This contains the key note for note on and off events and the least significant bits of a pitch bend.
@@ -203,46 +239,23 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 
 	if ((note[channel] == 1) && (velocity[channel] > min_velocity)  )  { // Note On Event only if the velocity is above the minumium velocity value
 		
-		if (verbose_mode > 0){
-			int fret = pitch[channel] - base[channel] + tuning[channel]; // Calculates the fret and offsets any changes to standard tuning.
-			cons_output( note[channel], status, rb_pitch[channel], channel, velocity[channel], fret);
+		int fret = pitch[channel] - base[channel] + tuning[channel]; // Calculates the fret and offsets any changes to standard tuning.
+		
+
+		if (( fret >= 0) && ( fret <= 22 )){ // Make sure that the pitch bend is in range of the Squier open to fret 22.
+			
+			if (verbose_mode > 0){
+				cons_output( note[channel], status, rb_pitch[channel], channel, velocity[channel], fret);
+			}	
+			
+			send_note_to_rbmpa( channel, rb_pitch[channel], velocity[channel]); // Send a strummed note to rock band midi pro adapter
+		}else {
+			if (verbose_mode >1){
+				std::cout << "Pitch note out of range\n";
+			}
 		}
 
-		/* Rock Band 3 Pro guitar SysEx Message Format
-		 *
-		 * Part    1  2  3  4 5 6  7  8
-		 * Sample 240 8 64 10 1 1 43 247
-		 *
-		 * Part 1 - Starting byte of a SysEx Message (always 240)
-		 * Part 2,3,4 - Identifiers that this is a SysEx message used for Pro Guitar 
-		 * Part 5 - Message type (1 = set fret position, 5 = play string)
-		 * Part 6 - Midi Channel
-		 * Part 7 - Midi Note
-		 * Part 8 - End SysEx Message (always 247)
-		*/
 
-
-		std::vector<unsigned char> sysExMessage;
-		sysExMessage.push_back( 240);
-		sysExMessage.push_back( 8 );
-		sysExMessage.push_back( 64 ); 
-		sysExMessage.push_back( 10  );
-		sysExMessage.push_back( 1); // 1 sets fret position
-		sysExMessage.push_back( channel + 1); // channel
-		sysExMessage.push_back( rb_pitch[channel] );  // Send a pitch that is calculated using the raw midi pitch, any pitch offset (guitar or bass ocatave) and any alternative tuning on that string
-		sysExMessage.push_back( 247 );
-		midiout->sendMessage( &sysExMessage );
-
-		std::vector<unsigned char> sysExMessage1;
-		sysExMessage1.push_back( 240);
-		sysExMessage1.push_back( 8 );
-		sysExMessage1.push_back( 64 );
-		sysExMessage1.push_back( 10  );
-		sysExMessage1.push_back( 5); // 5 for playing a string
-		sysExMessage1.push_back( channel + 1); // channel
-		sysExMessage1.push_back( velocity[channel] );
-		sysExMessage1.push_back( 247 );
-		midiout->sendMessage( &sysExMessage1 );
 		note[channel]=0;
 
 
@@ -261,27 +274,31 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 				cons_output( note[channel], status, rb_pitch[channel], channel, 0, fret);
 			}
 
-
-			std::vector<unsigned char> sysExMessage;
-			sysExMessage.push_back( 240);
-			sysExMessage.push_back( 8 );
-			sysExMessage.push_back( 64 );
-			sysExMessage.push_back( 10  );
-			sysExMessage.push_back( 1);
-			sysExMessage.push_back( channel + 1);
-			sysExMessage.push_back( rb_pitch[channel] );
-			sysExMessage.push_back( 247 );
-			midiout->sendMessage( &sysExMessage );
+		send_fret_to_rbmpa( channel, rb_pitch[channel] ); // Send new position without a strum to rock band midi pro adapter.
 
 			note[channel]=0;
 
 			
 		}
 
-	}else if (note[channel] == 3)  { // Pitch bend event. This code handles pitch bend midi input. This needs to translate slides, hammer ons and pull offs to semitone fret events. Make sure a note is being played too.
-		// Guitar synth allows for +/-24 semitones and the max value for a signed 14bit number is +8192 to -8192.
-		//std::cout << "Detected a pitch bend on channel " << channel << ". Pitch bend value was data1:" << data1 << " data2: " << data2 <<  ".\n";
-		int pitch_shift = data1 + (data2 << 7) - 8192; // Calculate the shift in pitch based on the first data packet (7bits) and the second (7bits) which is shifted 7 bits and added to the first data packet. Then the center pitch value (8192) of an unsigned int is subtracted to give the relative pitch change in the range of +/- 8192 as a signed int. 
+	}else if (note[channel] == 3)  { 
+		/* 
+		 * Pitch bend event. This code handles pitch bend midi input.
+		 * This needs to translate slides, hammer ons and pull offs 
+		 * to semitone fret events. Make sure a note is being played too. 
+		 *
+		 *  Guitar synth (GR55) allows for +/-24 semitones and the max value for
+		 *  a signed 14bit number is +8192 to -8192.
+		 *
+		 * Calculate the shift in pitch based on the first data packet 
+		 * (7bits) and the second (7bits) which is shifted 7 bits and 
+		 * added to the first data packet. Then the center pitch value 
+		 * (8192) of an unsigned int is subtracted to give the relative 
+		 * pitch change in the range of +/- 8192 as a signed int. 
+		 *
+		 */
+		int pitch_shift = data1 + (data2 << 7) - 8192; 		
+
 		if (verbose_mode >1){
 			std::cout << "Total shift in pitch is: pitch " << pitch[channel] << " " << pitch_shift << " on channel "<< channel << ".\n"; 		
 		}
@@ -289,7 +306,7 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 	
 		int fret_change = (pitch_shift / semitone); // integer division should only give the whole semitone changes
 		
-		int remainder = (pitch_shift % semitone);
+		int remainder = (pitch_shift % semitone); // Calculate the remainder to see if it is withing the tolerance range
 
 		if (remainder / lower_tolerance == 1) {
 			fret_change += 1; 
@@ -309,20 +326,20 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 
 			rb_pitch[channel] = new_pitch;
 			int fret = rb_pitch[channel] - base[channel] - pitch_offset; // Calculates the fret and offsets any changes to standard tuning.
-			if (verbose_mode >0) {
-				cons_output( note[channel], status, rb_pitch[channel], channel, fret_change, fret);
+			
+
+			if (( fret >= 0) && ( fret <= 22 )){ // Make sure that the pitch bend is in range of the Squier open to fret 22.
+				if ( verbose_mode > 0 ) {
+					cons_output( note[channel], status, rb_pitch[channel], channel, fret_change, fret);
+				}
+			
+				send_fret_to_rbmpa( channel, rb_pitch[channel] ); // Send new position without a strum to rock band midi pro adapter.
+			}else {
+				if (verbose_mode >1){
+					std::cout << "Pitch bend out of range\n";
+				}
 			}
-			// Send the new fret position to rock band
-			std::vector<unsigned char> sysExMessage;
-			sysExMessage.push_back( 240);
-			sysExMessage.push_back( 8 );
-			sysExMessage.push_back( 64 );
-			sysExMessage.push_back( 10  );
-			sysExMessage.push_back( 1);
-			sysExMessage.push_back( channel + 1);
-			sysExMessage.push_back( rb_pitch[channel]);  // Send a pitch that is calculated using the adjusted pitch, any pitch offset (guitar or bass ocatave) and any alternative tuning on that string
-			sysExMessage.push_back( 247 );
-			midiout->sendMessage( &sysExMessage );	
+			
 			note[channel]=0;
 		}
 		
@@ -488,7 +505,7 @@ int main( int argc, char *argv[] )
 
 	// Don't ignore sysex, Ignore timing, and active sensing messages
 	// I was getting crashes with these activated, and a roland vg-99 connected
-	midiin->ignoreTypes( false, true, true);
+	midiin->ignoreTypes( true, true, true);
 
 	std::cout << "\nProcessing MIDI messages.\n";
 	std::cout << "\nTo change tuning type <num> and press <enter>. Any other key to quit\n";
