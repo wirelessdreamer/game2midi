@@ -101,28 +101,28 @@ void cons_output( int note_event, int midi_status, int midi_pitch, int midi_chan
 		std::cout << "#";
 	  	std::cout.fill(' ');
 	  	std::cout << std::setw(6) << count++;
-		std::cout << "  Status message: " << std::setw(3) << midi_status;
-		std::cout << "  on channel " << midi_channel << ". ";
+		std::cout << "  Status: " << std::setw(3) << midi_status;
+		std::cout << "  Ch: " << midi_channel << ". ";
 
 
 		switch (note_event) {
 		case 1: // Note on event output 
-			std::cout << " Note On event ";
+			std::cout << " Note On ";
 			std::cout << "  Pitch: " << std::setw(3) << midi_pitch;
 			std::cout << "  Velocity: " << std::setw(3) << midi_velocity;
 			std::cout << "  ->  ";
 			std::cout << string << " " << std::setw(2) << guitar_fret;
 			break;
-		case 2: // Note off event output
-			std::cout << " Note off event. Sending ";
-			std::cout << string << " " << std::setw(2) << guitar_fret;
-			break;
-		case 3: // Note on event output 
-			std::cout << " Bend event ";
+		case 2: // Note on event output 
+			std::cout << " Bend ";
 			std::cout << "  Pitch: " << std::setw(3) << midi_pitch;
 			std::cout << "  fret change: " << std::setw(3) << midi_velocity;
 			std::cout << "  ->  ";
 			std::cout << string << " " << std::setw(2) << guitar_fret;
+			break;
+		case 3: // Note off event output
+			std::cout << " Note off. Sending ";
+			std::cout << string << " " << std::setw(2) << guitar_fret << std::endl;
 			break;
 		default:
 			std::cout << " unknown ";
@@ -220,19 +220,19 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 	
 	if ((status >=128) && (status <=134)){
 		channel = status - 128 + channel_offset;  // Calculate the channel stopped playing a note. This time we don't care about the pitch and the velocity.
-		note[channel] = 2; // Note off event
+		note[channel] = 3; // Note off event
 	}
 	
 	if ((status >=144) && (status <=150) && (data2 == 0)) { // VB99 does not send note off events instead it sends a zero velocity to the playing note.
 		channel = status - 144 + channel_offset;  // Calcuate which channel on the note has been played from using the status data
-		note[channel] = 2; // Note off event
+		note[channel] = 3; // Note off event
 
 	}
 	
 	if (tolerance >0){  // Pitch bend events are not processed when the tolerance is set to 0. 
 		if ((status >= 224) && (status <= 230)){
 			channel = status - 224 + channel_offset; // Calculate which channel sent the pitch bend 
-			note[channel] = 3; // Pitch bend event
+			note[channel] = 2; // Pitch bend event
 		}
 	}
 
@@ -259,29 +259,7 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		note[channel]=0;
 
 
-	}else if (note[channel] == 2){ // Note Off Event
-		/* 	Here if a note other then the open string was played 
-			we return the state of that string to open 
-			This is for the display in game of what frets are 
-			pushed down, but easily gets out of sync from 
-			ghost notes
-	 	*/
-		if (pitch[channel]  != base[channel]){ // no need to return the fret pushed down back to open, if already open
-
-			rb_pitch[channel] = base[channel] + pitch_offset; // Calcuate the open note based on the open string pitch definition and the pitch offset
-			if (verbose_mode >0){
-				int fret = rb_pitch[channel] - base[channel] - pitch_offset ; // Should always be fret 0
-				cons_output( note[channel], status, rb_pitch[channel], channel, 0, fret);
-			}
-
-		send_fret_to_rbmpa( channel, rb_pitch[channel] ); // Send new position without a strum to rock band midi pro adapter.
-
-			note[channel]=0;
-
-			
-		}
-
-	}else if (note[channel] == 3)  { 
+	}else if (note[channel] == 2)  { 
 		/* 
 		 * Pitch bend event. This code handles pitch bend midi input.
 		 * This needs to translate slides, hammer ons and pull offs 
@@ -342,7 +320,29 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 			
 			note[channel]=0;
 		}
-		
+
+	}else if (note[channel] == 3){ // Note Off Event
+		/* 	Here if a note other then the open string was played 
+		we return the state of that string to open 
+		This is for the display in game of what frets are 
+		pushed down, but easily gets out of sync from 
+		ghost notes
+ 		*/
+		if (pitch[channel]  != base[channel]){ // no need to return the fret pushed down back to open, if already open
+
+			pitch[channel] = base[channel] - tuning[channel]; // Resest midi pitch to open string
+			rb_pitch[channel] = base[channel] + pitch_offset; // Calcuate the open note based on the open string pitch definition and the pitch offset
+			if (verbose_mode >0){
+				int fret = rb_pitch[channel] - base[channel] - pitch_offset ; // Should always be fret 0
+				cons_output( note[channel], status, rb_pitch[channel], channel, 0, fret);
+			}
+
+		send_fret_to_rbmpa( channel, rb_pitch[channel] ); // Send new position without a strum to rock band midi pro adapter.
+
+		note[channel]=0;
+
+			
+		}
 
 	}
 }
