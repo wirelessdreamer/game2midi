@@ -45,6 +45,7 @@ int semitone =0;
 int tolerance=5; // Set the pitch tolerance value
 int lower_tolerance=0;
 int channel = -1;
+int overdrive_on = 0; // This is used to tack and toggle overdrive for activation.
 
 void usage( void ) {
 	// Error function in case of incorrect command-line
@@ -156,7 +157,7 @@ void send_note_to_rbmpa(int send_note_channel, int send_note_pitch, int send_not
 	 *
 	 * Part 1 - Starting byte of a SysEx Message (always 240)
 	 * Part 2,3,4 - Identifiers that this is a SysEx message used for Pro Guitar 
-	 * Part 5 - Message type (1 = set fret position, 5 = play string)
+	 * Part 5 - Message type (1 = set fret position, 5 = play string, 8 = overdrive)
 	 * Part 6 - Midi Channel
 	 * Part 7 - Midi Note
 	 * Part 8 - End SysEx Message (always 247)
@@ -173,6 +174,50 @@ void send_note_to_rbmpa(int send_note_channel, int send_note_pitch, int send_not
 	sysExMessage.push_back( 5); // 5 for playing a string
 	sysExMessage.push_back( send_note_channel + 1); // channel
 	sysExMessage.push_back( send_note_velocity );
+	sysExMessage.push_back( 247 );
+	midiout->sendMessage( &sysExMessage );
+}
+
+void activate_overdrive( void ){
+	/*
+	 * This sysex message was captured from a MadCatz RB3 pro Mustang controller.
+	 * Part               1  2  3  4  5  6  7  8  9  10
+	 * Sysex message:    240 8 64 10 08 00 00 72 00 247
+	 *
+	 */
+	
+	std::vector<unsigned char> sysExMessage;
+	sysExMessage.push_back( 240);
+	sysExMessage.push_back( 8 );
+	sysExMessage.push_back( 64 );
+	sysExMessage.push_back( 10  );
+	sysExMessage.push_back( 8); 
+	sysExMessage.push_back( 0); 
+	sysExMessage.push_back( 0);
+	sysExMessage.push_back( 72);
+	sysExMessage.push_back( 0);
+	sysExMessage.push_back( 247 );
+	midiout->sendMessage( &sysExMessage );
+}
+
+void reset_overdrive( void ){
+	/*
+	 * This sysex message was captured from a MadCatz RB3 pro Mustang controller.
+	 * Part               1  2  3  4  5  6  7  8  9  10
+	 * Sysex message:    240 8 64 10 08 00 00 08 00 247
+	 *
+	 */
+	
+	std::vector<unsigned char> sysExMessage;
+	sysExMessage.push_back( 240);
+	sysExMessage.push_back( 8 );
+	sysExMessage.push_back( 64 );
+	sysExMessage.push_back( 10  );
+	sysExMessage.push_back( 8); 
+	sysExMessage.push_back( 0); 
+	sysExMessage.push_back( 0);
+	sysExMessage.push_back( 8);
+	sysExMessage.push_back( 0);
 	sysExMessage.push_back( 247 );
 	midiout->sendMessage( &sysExMessage );
 }
@@ -205,10 +250,16 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 	 * Pitch bend events have a value ranging from 224 - 239. The two data packets form a 14bit signed int value for a pitch shift.
 	*/
 	
+	/* 
+	 * If extra verbose is enabled then send all MIDI messages to the console before processing them
+	 */
 	if (verbose_mode > 1){
 		std::cout << "Raw midi. Status: " << status << ". Data1: " << data1 << " Data2: " << data2 << ".\n";
 		}
 
+	/* 
+	 * Process a note on event.
+	 */
 	if ((status >=144) && (status <=150)) {
 		channel = status - 144 + channel_offset;  // Calcuate which channel on the note has been played from using the status data
 		pitch[channel] = data1;
@@ -218,17 +269,26 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		
 	}
 	
+	/*
+	 * Process a note off event.
+	 */
 	if ((status >=128) && (status <=134)){
 		channel = status - 128 + channel_offset;  // Calculate the channel stopped playing a note. This time we don't care about the pitch and the velocity.
 		note[channel] = 3; // Note off event
 	}
 	
+	/*
+	 * Process VB99 0 velocity events as note off events.
+	 */
 	if ((status >=144) && (status <=150) && (data2 == 0)) { // VB99 does not send note off events instead it sends a zero velocity to the playing note.
 		channel = status - 144 + channel_offset;  // Calcuate which channel on the note has been played from using the status data
 		note[channel] = 3; // Note off event
 
 	}
-	
+
+	/*
+	 * Process pitch bend events.
+	 */
 	if (tolerance >0){  // Pitch bend events are not processed when the tolerance is set to 0. 
 		if ((status >= 224) && (status <= 230)){
 			channel = status - 224 + channel_offset; // Calculate which channel sent the pitch bend 
@@ -236,7 +296,30 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 		}
 	}
 
+	/*
+	 * Process expression events for activating overdrive.
+	 */
+	if ((status >=176)&& (status <=181)){ // Control/Mode Change on channel 1. Otherwise the message will be sent 6 times.
+		if ((data1 == 1) && (data2 >= 64) && (!overdrive_on)) { // Expression above threshold so send a tilt up to activate overdrive.
+			if (verbose_mode >0){
+				std::cout << "Sending tilt up for overdrive!\n";
+			}
+			activate_overdrive();
+			overdrive_on=1;
+		}
+		if ((data1 == 1) && (data2 < 64) && (overdrive_on)) { // Expression below midpoint threshold so send a tilt down to reset overdrive.
+			if (verbose_mode >0){
+				std::cout << "Sending tilt down to reset overdrive.\n";
+			}
+			reset_overdrive();
+			overdrive_on=0;
+		}
+	
+	}
 
+	/*
+	 * This determines the note played and sends the fret and velocity to the rock band 3 midi pro adapter.
+	 */
 	if ((note[channel] == 1) && (velocity[channel] > min_velocity)  )  { // Note On Event only if the velocity is above the minumium velocity value
 		
 		int fret = pitch[channel] - base[channel] + tuning[channel]; // Calculates the fret and offsets any changes to standard tuning.
@@ -258,7 +341,10 @@ void mycallback( double deltatime, std::vector< unsigned char > *message, void *
 
 		note[channel]=0;
 
-
+	/*
+	 * This converts the pitch bend events to fret positions and sends the new fret position to
+	 * the rock band 3 midi pro adapter.
+	 */
 	}else if (note[channel] == 2)  { 
 		/* 
 		 * Pitch bend event. This code handles pitch bend midi input.
@@ -506,6 +592,11 @@ int main( int argc, char *argv[] )
 	// Don't ignore sysex, Ignore timing, and active sensing messages
 	// I was getting crashes with these activated, and a roland vg-99 connected
 	midiin->ignoreTypes( true, true, true);
+
+	/*
+	 * Send a reset overdrive event after the ports have been opened.
+	 */
+	reset_overdrive();
 
 	std::cout << "\nProcessing MIDI messages.\n";
 	std::cout << "\nTo change tuning type <num> and press <enter>. Any other key to quit\n";
